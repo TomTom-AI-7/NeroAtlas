@@ -1,0 +1,7 @@
+# Minimal environment for the NeuroAtlas exercise scripts.
+numpy>=1.26
+scipy>=1.11
+scikit-learn>=1.4
+matplotlib>=3.8
+# For C3 (real EEG). Not needed for 01–03.
+mne>=1.7
