@@ -75,6 +75,14 @@ export function createStore(backend = safeBackend(), now = () => Date.now()) {
       save();
     },
 
+    /** "It was just a slip": rewrite the last wrong answer as correct (fmva-style), using the pre-answer record. */
+    overrideAsCorrect(qid, before) {
+      const streak = before.streak + 1;
+      state.scores[qid] = { attempts: before.attempts + 1, correct: before.correct + 1, last: true, streak,
+        due: now() + INTERVALS_DAYS[Math.min(streak - 1, INTERVALS_DAYS.length - 1)] * DAY };
+      save();
+    },
+
     toggleBookmark(qid) { if (state.bookmarks[qid]) delete state.bookmarks[qid]; else state.bookmarks[qid] = true; save(); return !!state.bookmarks[qid]; },
 
     addEntry(type, text, qid = null) {
@@ -104,9 +112,9 @@ export function createStore(backend = safeBackend(), now = () => Date.now()) {
 // ---------- derived (pure) ----------
 export const attempted = (state, q) => (state.scores[q.id]?.attempts || 0) > 0;
 
-/** Choice questions whose review date has come. Tasks never come back. */
+/** Questions whose review date has come. Research tasks never come back. */
 export function dueQuestions(questions, state, t = Date.now()) {
-  return questions.filter(q => q.type === 'choice' && state.scores[q.id] && state.scores[q.id].due <= t);
+  return questions.filter(q => q.type !== 'task' && state.scores[q.id] && state.scores[q.id].due <= t);
 }
 
 /** First unanswered question in curriculum order (prep → core → electives), with its course's remaining count. */
@@ -122,13 +130,13 @@ export function courseStats(course, state) {
   const total = course.questions.length;
   const done = course.questions.filter(q => attempted(state, q)).length;
   let a = 0, c = 0;
-  for (const q of course.questions) { const s = state.scores[q.id]; if (s && q.type === 'choice') { a += s.attempts; c += s.correct; } }
+  for (const q of course.questions) { const s = state.scores[q.id]; if (s && q.type !== 'task') { a += s.attempts; c += s.correct; } }
   return { done, total, ratio: total ? done / total : 0, accuracy: a ? c / a : null };
 }
 
 export function overall(questions, state) {
   let a = 0, c = 0, n = 0;
-  for (const q of questions) { const s = state.scores[q.id]; if (s?.attempts) { n++; if (q.type === 'choice') { a += s.attempts; c += s.correct; } } }
+  for (const q of questions) { const s = state.scores[q.id]; if (s?.attempts) { n++; if (q.type !== 'task') { a += s.attempts; c += s.correct; } } }
   return { answered: n, total: questions.length, accuracy: a ? c / a : null };
 }
 

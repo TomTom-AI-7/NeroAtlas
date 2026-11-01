@@ -1,10 +1,11 @@
 // Content registry. Courses are authored as lessons (content/*.js); here each lesson becomes a
-// UNIT = concept card (figure first) → knowledge-check questions → one research task.
+// UNIT = concept card (figure first) → knowledge checks → field-specific questions → one research task.
 // The study flow walks units in curriculum order, one question at a time.
 import { PREP } from './prep.js';
 import { CORE_A } from './core-a.js';
 import { CORE_B } from './core-b.js';
 import { ELECTIVES } from './electives.js';
+import { ITEMS } from './items.js';
 export { RESOURCES, RESOURCE_MAP } from './resources.js';
 
 export const SECTIONS = [
@@ -17,6 +18,8 @@ function toUnit(course, l) {
   const ja = l.concept.ja, en = l.concept.en;
   const base = { course: course.id, unit: l.id, topic: l.title };
   const questions = l.quiz.map(q => ({ ...base, ...q, id: `${l.id}-${q.id}`, type: 'choice' }));
+  // Field-specific questions (calculation, figure reading, electrode map, code, ordering).
+  for (const q of ITEMS[l.id] || []) questions.push({ ...base, ...q, id: `${l.id}-${q.id}` });
   const p = l.practice;
   questions.push({
     ...base, id: `${l.id}-task`, type: 'task',

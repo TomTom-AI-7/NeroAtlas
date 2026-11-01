@@ -364,3 +364,43 @@ ul.plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .nav a { position: relative; }
 .nav-badge { position: absolute; top: 8px; left: calc(50% + 6px); background: var(--danger); color: #fff; font-size: .65rem; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
 @media (min-width: 900px) { .nav-badge { position: static; margin-left: auto; } }
+
+/* ---- field-specific question types ---- */
+.q-figure { margin: 0; padding: .5rem; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.q-figure .viz { margin: 0; }
+.hint-wrap { display: flex; flex-direction: column; align-items: flex-start; }
+.hint { margin: 0; background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border-left: 3px solid var(--warn); border-radius: 8px; padding: .5rem .8rem; }
+.num-form { display: flex; flex-direction: column; gap: .5rem; }
+.num-row { display: flex; align-items: center; gap: .6rem; }
+.num-input { flex: 1; min-width: 0; font: 600 1.25rem/1.4 var(--mono); padding: .6rem .8rem; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); }
+.num-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.num-input.is-correct { border-color: var(--ok); } .num-input.is-wrong { border-color: var(--danger); }
+.num-unit { color: var(--muted); font-weight: 600; flex: none; }
+.num-preview { margin: 0; min-height: 1.3em; color: var(--accent); font-family: var(--mono); }
+.op-bar { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.op-bar button { min-height: 42px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); border-radius: 9px; font: 600 1rem var(--mono); cursor: pointer; }
+.num-form .btn { align-self: flex-start; }
+.worked code, .feedback code { font-family: var(--mono); background: var(--surface-2); padding: .1rem .4rem; border-radius: 6px; overflow-wrap: anywhere; }
+.slip { align-self: flex-start; }
+.code-block { font: .85rem/1.6 var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem; margin: 0; white-space: pre; overflow-x: auto; }
+.code-block .blank { background: var(--accent-soft); color: var(--accent); border-radius: 4px; padding: 0 .2rem; font-weight: 700; }
+.code-block mark { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--fg); border-radius: 4px; padding: 0 .2rem; font-weight: 700; }
+.code-opt code { font: .88rem/1.5 var(--mono); overflow-wrap: anywhere; min-width: 0; }
+.q-head { max-width: 360px; }
+.q-head .electrode.is-answer circle { fill: var(--ok); stroke: var(--ok); }
+.q-head .electrode.is-answer text { fill: #fff; }
+.q-head .electrode.is-wrong circle { fill: var(--danger); stroke: var(--danger); }
+.q-head .electrode.is-wrong text { fill: #fff; }
+.q-head.answered .electrode { cursor: default; }
+.center { text-align: center; }
+.order-picked { list-style: none; counter-reset: ord; padding: 0; margin: 0; display: grid; gap: 6px; min-height: 8px; }
+.order-slot { counter-increment: ord; display: flex; gap: .6rem; align-items: flex-start; background: var(--accent-soft); border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius: 12px; padding: .6rem .8rem; }
+.order-slot::before { content: counter(ord); flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-weight: 700; font-size: .8rem; }
+.order-slot.is-correct { background: color-mix(in srgb, var(--ok) 12%, var(--surface)); border-color: var(--ok); }
+.order-slot.is-correct::before { background: var(--ok); }
+.order-slot.is-wrong { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); border-color: var(--danger); }
+.order-slot.is-wrong::before { background: var(--danger); }
+.order-pool { display: flex; flex-wrap: wrap; gap: 6px; }
+.order-item { text-align: left; background: var(--surface); border: 1.5px dashed var(--line); border-radius: 12px; padding: .6rem .8rem; color: var(--fg); font: inherit; cursor: pointer; min-height: 44px; }
+.order-item:hover { border-color: var(--accent); border-style: solid; }
+.order-answer { margin: .2rem 0; padding-left: 1.4rem; }

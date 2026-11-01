@@ -1,11 +1,11 @@
 // Offline cache for the app shell (stale-while-revalidate). Bump VERSION when files change.
-const VERSION = 'neuroatlas-v3';
+const VERSION = 'neuroatlas-v4';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'icon.svg', 'manifest.webmanifest',
-  'js/app.js', 'js/i18n.js', 'js/store.js', 'js/export.js', 'js/dom.js', 'js/pyrunner.js',
+  'js/app.js', 'js/i18n.js', 'js/store.js', 'js/export.js', 'js/dom.js', 'js/pyrunner.js', 'js/calc.js',
   'js/views/home.js', 'js/views/course.js', 'js/views/practice.js', 'js/views/review.js', 'js/views/notes.js', 'js/views/library.js', 'js/views/exportpanel.js',
   'js/widgets/index.js', 'js/widgets/plot.js', 'js/widgets/neuro.js', 'js/widgets/signal.js', 'js/widgets/stats.js', 'js/widgets/diagrams.js',
-  'content/index.js', 'content/resources.js', 'content/prep.js', 'content/core-a.js', 'content/core-b.js', 'content/electives.js',
+  'content/index.js', 'content/resources.js', 'content/prep.js', 'content/core-a.js', 'content/core-b.js', 'content/electives.js', 'content/items.js',
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

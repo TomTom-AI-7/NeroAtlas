@@ -4,6 +4,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { COURSES, SECTIONS, RESOURCES, RESOURCE_MAP, COURSE_MAP, QUESTIONS, UNITS } from '../content/index.js';
 const LESSONS = COURSES.flatMap(c => c.lessons.map(lesson => ({ course: c, lesson })));
 import { WIDGET_IDS } from '../js/widgets/index.js';
+import { E1020 } from '../js/widgets/neuro.js';
+import { ITEMS } from '../content/items.js';
+import { isCorrect } from '../js/calc.js';
 import { UI_STRINGS } from '../js/i18n.js';
 
 const bilingual = (o, where) => {
@@ -91,9 +94,38 @@ test('every lesson becomes a unit: concept card, its questions, then one researc
   for (const u of UNITS) {
     assert.ok(u.lead.ja && u.lead.en, u.id);
     assert.equal(u.questions.at(-1).type, 'task', `${u.id}: task last`);
-    assert.ok(u.questions.slice(0, -1).every(q => q.type === 'choice'), `${u.id}: checks first`);
+    assert.ok(u.questions.slice(0, -1).every(q => q.type !== 'task'), `${u.id}: only one task, at the end`);
     for (const q of u.questions) { assert.equal(q.unit, u.id); assert.equal(q.course, u.course); }
   }
   const ids = QUESTIONS.map(q => q.id); assert.equal(new Set(ids).size, ids.length, 'question ids unique');
   assert.equal(QUESTIONS[0].course, 'p1', 'study order starts with Prep');
+});
+
+test('field-specific questions are well-formed and gradable', () => {
+  const lessonIds = new Set(LESSONS.map(x => x.lesson.id));
+  const types = new Set();
+  for (const [lid, items] of Object.entries(ITEMS)) {
+    assert.ok(lessonIds.has(lid), `items for unknown lesson ${lid}`);
+    for (const q of items) {
+      const w = `${lid}-${q.id}`; types.add(q.type);
+      bilingual(q.q, `${w}.q`); bilingual(q.explain, `${w}.explain`);
+      if (q.hint) bilingual(q.hint, `${w}.hint`);
+      if (q.figure) assert.ok(['trace', 'spectrum'].includes(q.figure.kind), `${w}: figure kind`);
+      if (q.type === 'number') {
+        assert.ok(Number.isFinite(q.answer), w);
+        assert.ok(isCorrect(String(q.answer), q.answer, q.tolerance ?? 0, q.percent), `${w}: answer must grade as correct`);
+        if (q.formula) assert.equal(typeof q.formula, 'string');
+      } else if (q.type === 'electrode') {
+        assert.ok(q.answer.length && q.answer.every(e => e in E1020), `${w}: electrode names`);
+      } else if (q.type === 'code') {
+        assert.ok(q.code.includes('____'), `${w}: blank`); assert.ok(q.options.every(o => typeof o === 'string'));
+        assert.ok(q.answer >= 0 && q.answer < q.options.length, `${w}: answer`);
+      } else if (q.type === 'order') {
+        assert.ok(q.items.length >= 3, `${w}: items`); q.items.forEach((it, i) => bilingual(it, `${w}.items[${i}]`));
+      } else if (q.type === 'choice') {
+        q.options.forEach((o, i) => bilingual(o, `${w}.opt${i}`)); assert.ok(q.answer >= 0 && q.answer < q.options.length);
+      } else assert.fail(`${w}: unknown type ${q.type}`);
+    }
+  }
+  for (const t of ['number', 'electrode', 'code', 'order', 'choice']) assert.ok(types.has(t), `uses ${t}`);
 });

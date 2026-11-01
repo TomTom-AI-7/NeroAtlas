@@ -1,10 +1,10 @@
 // Widget registry. To add a figure: export a function (el, props, ctx) => cleanup and list it here.
 import { neuron, synchrony, brainmap, electrodes } from './neuro.js';
-import { spectrum, sampling, filter, bands, artifacts } from './signal.js';
+import { spectrum, sampling, filter, bands, artifacts, stimulus } from './signal.js';
 import { distribution, leakage, imbalance, confound, ci, multiple } from './stats.js';
 import { pipeline, imrad } from './diagrams.js';
 
-export const WIDGETS = { neuron, synchrony, brainmap, electrodes, spectrum, sampling, filter, bands, artifacts, distribution, leakage, imbalance, confound, ci, multiple, pipeline, imrad };
+export const WIDGETS = { neuron, synchrony, brainmap, electrodes, spectrum, sampling, filter, bands, artifacts, distribution, leakage, imbalance, confound, ci, multiple, pipeline, imrad, stimulus };
 export const WIDGET_IDS = Object.keys(WIDGETS);
 
 const live = new Set();

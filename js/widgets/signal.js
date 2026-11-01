@@ -163,3 +163,26 @@ export function artifacts(el, props = {}, { L }) {
   draw();
   return onResize(cvs, draw);
 }
+
+// ---------- static figure for "read the figure" questions ----------
+// props: { kind: 'trace', site, blink, emg, mains, pop } | { kind: 'spectrum', peaks: [[f, amp]], mains, noise }
+export function stimulus(el, props = {}, { L }) {
+  const cv = makeCanvas(el, props.kind === 'spectrum' ? 170 : 150, L({ ja: '問題の図', en: 'Question figure' }));
+  const r = rng(71);
+  function draw() {
+    const p = palette();
+    if (props.kind === 'spectrum') {
+      const x = add(pink(72, 0.5), white(73, props.noise ?? 0.2), ...(props.peaks || []).map(([f, a], i) => sine(f, a, i)), props.mains ? sine(50, props.mains) : T.map(() => 0));
+      const { f, psd } = welch(x, FS, 256); const k = f.findIndex(v => v > 70);
+      linePlot(cv, [{ x: f.slice(1, k), y: dB(psd.slice(1, k)), color: p.b, width: 1.8 }], { xlabel: 'Hz', ylabel: 'PSD (dB)', xticks: [0, 10, 20, 30, 40, 50, 60, 70] });
+      return;
+    }
+    const brain = add(sine(10, 0.5), pink(74, 0.5), white(75, 0.08));
+    const blink = T.map(t => [0.7, 2.1, 3.3].reduce((s, c) => s + 4 * Math.exp(-((t - c) ** 2) / 0.012), 0));
+    const emg = T.map(t => (t > 1.4 && t < 2.6 ? 1.3 : 0.04) * r.n());
+    const x = add(brain, props.blink ? blink : T.map(() => 0), props.emg ? emg : T.map(() => 0), props.mains ? sine(50, 0.8) : T.map(() => 0));
+    linePlot(cv, [{ x: T, y: x, color: p.a, width: 1.2 }], { xlabel: 's', ylabel: props.site || 'EEG', ylim: [-4, 6] });
+  }
+  draw();
+  return onResize([cv], draw);
+}
