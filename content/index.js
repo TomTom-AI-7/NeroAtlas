@@ -1,4 +1,6 @@
-// Content registry. Add a course by appending to one of the section arrays.
+// Content registry. Courses are authored as lessons (content/*.js); here each lesson becomes a
+// UNIT = concept card (figure first) → knowledge-check questions → one research task.
+// The study flow walks units in curriculum order, one question at a time.
 import { PREP } from './prep.js';
 import { CORE_A } from './core-a.js';
 import { CORE_B } from './core-b.js';
@@ -6,25 +8,38 @@ import { ELECTIVES } from './electives.js';
 export { RESOURCES, RESOURCE_MAP } from './resources.js';
 
 export const SECTIONS = [
-  { id: 'prep', label: { ja: 'プレップ（基礎・準備）', en: 'Prep (Foundations)' },
-    short: { ja: 'プレップ', en: 'Prep' },
-    desc: { ja: 'コアに入る前の土台：神経科学・数学/Python・研究リテラシー', en: 'Groundwork before Core: neuroscience, math/Python, research literacy' } },
-  { id: 'core', label: { ja: 'コア（必須）', en: 'Core (Required)' },
-    short: { ja: 'コア', en: 'Core' },
-    desc: { ja: 'EEG計測 → 信号処理 → 実データ → 機械学習 → 精神医学 → 研究手法 → 論文読解・再現 → 英語執筆 → 独自研究', en: 'Measurement → signals → real data → ML → psychiatry → methods → replication → writing → original research' } },
-  { id: 'elective', label: { ja: 'エレクティブ（選択）', en: 'Electives' },
-    short: { ja: '選択', en: 'Electives' },
-    desc: { ja: '研究の方向に合わせて選ぶ発展コース', en: 'Advanced options matched to your research direction' } },
+  { id: 'prep', label: { ja: 'プレップ', en: 'Prep' }, desc: { ja: '基礎・準備', en: 'Foundations' } },
+  { id: 'core', label: { ja: 'コア', en: 'Core' }, desc: { ja: '必修', en: 'Required' } },
+  { id: 'elective', label: { ja: '選択', en: 'Elective' }, desc: { ja: '研究の方向に合わせて', en: 'Match your direction' } },
 ];
 
-export const COURSES = [...PREP, ...CORE_A, ...CORE_B, ...ELECTIVES];
-export const COURSE_MAP = Object.fromEntries(COURSES.map(c => [c.id, c]));
-
-export function lessonKey(courseId, lessonId) { return `${courseId}/${lessonId}`; }
-
-/** Flat, ordered list of all lessons (core path order = prep, core, electives). */
-export const LESSONS = COURSES.flatMap(c => c.lessons.map((l, i) => ({ course: c, lesson: l, index: i, key: lessonKey(c.id, l.id) })));
-
-export function findLesson(courseId, lessonId) {
-  return LESSONS.find(x => x.course.id === courseId && x.lesson.id === lessonId) || null;
+function toUnit(course, l) {
+  const ja = l.concept.ja, en = l.concept.en;
+  const base = { course: course.id, unit: l.id, topic: l.title };
+  const questions = l.quiz.map(q => ({ ...base, ...q, id: `${l.id}-${q.id}`, type: 'choice' }));
+  const p = l.practice;
+  questions.push({
+    ...base, id: `${l.id}-task`, type: 'task',
+    task: p.task, prompt: p.prompt, code: p.code || null, packages: p.packages || null,
+    draftSection: p.draftSection || null, wordTarget: p.wordTarget || null, reflect: l.reflect,
+  });
+  return {
+    id: l.id, course: course.id, title: l.title,
+    figure: l.visual || null,
+    lead: { ja: ja[0], en: en[0] },
+    points: ja.slice(1).map((s, i) => ({ ja: s, en: en[i + 1] })),
+    keywords: l.keywords || [],
+    questions,
+  };
 }
+
+export const COURSES = [...PREP, ...CORE_A, ...CORE_B, ...ELECTIVES].map(c => {
+  const units = c.lessons.map(l => toUnit(c, l));
+  return { ...c, units, questions: units.flatMap(u => u.questions) };
+});
+export const COURSE_MAP = Object.fromEntries(COURSES.map(c => [c.id, c]));
+export const UNITS = COURSES.flatMap(c => c.units);
+export const UNIT_MAP = Object.fromEntries(UNITS.map(u => [u.id, u]));
+/** Every question in study order: prep → core → electives, unit by unit. */
+export const QUESTIONS = COURSES.flatMap(c => c.questions);
+export const QUESTION_MAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));

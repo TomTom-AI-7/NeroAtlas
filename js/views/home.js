@@ -1,75 +1,87 @@
-import { html, progressBar, ring, toast } from '../dom.js';
-import { COURSES, LESSONS, SECTIONS } from '../../content/index.js';
-import { courseProgress, sectionProgress, nextLesson, pipelineStatus } from '../store.js';
-import { quizHtml, gradeQuiz } from './quiz.js';
+// Home: one Continue button, a review button, the curriculum at a glance, then the course list.
+import { html } from '../dom.js';
+import { COURSES, QUESTIONS, SECTIONS } from '../../content/index.js';
+import { nextUp, dueQuestions, overall, courseStats } from '../store.js';
 
-export function render(main, { store, t, L }) {
+let filter = 'all', search = '';
+
+export function render(main, ctx) {
+  const { store, b, pick, L } = ctx;
   const s = store.state;
-  const nx = nextLesson(LESSONS, s);
-  const doneAll = LESSONS.filter(x => s.progress[x.key]?.done).length;
-  const pipe = pipelineStatus(s);
-  const review = s.review.map(r => { const x = LESSONS.find(l => l.key === r.key); const q = x?.lesson.quiz.find(q => q.id === r.qid); return x && q ? { x, q } : null; }).filter(Boolean).slice(0, 3);
-  const recent = s.entries.slice(0, 3);
+  const nx = nextUp(COURSES, s);
+  const due = dueQuestions(QUESTIONS, s);
+  const ov = overall(QUESTIONS, s);
+  const unitOf = q => COURSES.find(c => c.id === q.course).units.find(u => u.id === q.unit);
 
   main.innerHTML = html`
     <section class="hero">
-      <p class="eyebrow">NeuroAtlas</p>
-      <h1>${t('appTagline')}</h1>
-      ${nx ? html`
-        <a class="card continue" href="#/lesson/${nx.course.id}/${nx.lesson.id}">
-          <span class="chip" style="--c:${nx.course.color}">${nx.course.code}</span>
-          <span class="continue-body"><small>${doneAll ? t('continue') : t('start')}</small><strong>${L(nx.lesson.title)}</strong><small class="muted">${L(nx.course.title)}</small></span>
-          <span class="continue-go" aria-hidden="true">▶</span>
-        </a>` : html`<p class="card">${t('allDone')}</p>`}
-    </section>
-
-    <section class="card">
-      <div class="row-between"><h2>${t('overall')}</h2><span class="muted">${doneAll}/${LESSONS.length} ${t('lessons')}</span></div>
-      ${progressBar(doneAll / LESSONS.length, t('overall'))}
-      <div class="section-stats">
-        ${SECTIONS.map(sec => { const p = sectionProgress(COURSES, sec.id, s.progress); return html`
-          <a class="section-stat" href="#/courses/${sec.id}">${ring(p.ratio)}<span><strong>${L(sec.short)}</strong><small class="muted">${p.done}/${p.total}</small></span></a>`; })}
+      <div>
+        <p class="eyebrow">${b('heroEyebrow')}</p>
+        <h1>${b('heroTitle1')}<br>${b('heroTitle2')}</h1>
+        <p class="muted">${b('heroSub')}</p>
       </div>
     </section>
 
-    <section class="card">
-      <h2>${t('pipelineTitle')}</h2>
-      <ol class="pipeline">
-        ${[['pipe1', pipe.theory], ['pipe2', pipe.replicate], ['pipe3', pipe.hypothesis], ['pipe4', pipe.draft]].map(([k, v]) => html`
-          <li class="${v >= 1 ? 'done' : v > 0 ? 'part' : ''}"><span class="pipe-dot" style="--p:${v}"></span><span>${t(k)}</span><small class="muted">${Math.round(v * 100)}%</small></li>`)}
+    <div class="stats">
+      <div><span>${b('statAnswered')}</span><strong>${ov.answered}<small> / ${ov.total}</small></strong></div>
+      <div><span>${b('statAccuracy')}</span><strong>${ov.accuracy === null ? '—' : Math.round(ov.accuracy * 100)}<small>%</small></strong></div>
+      <div><span>${b('statDue')}</span><strong>${due.length}</strong></div>
+    </div>
+
+    <button type="button" class="banner" id="continue" ${!nx && !due.length ? 'disabled' : ''}>
+      <span class="banner-body">
+        <strong>${nx ? html`<span class="chip" style="--c:${nx.course.color}">${nx.course.code}</span> ${b(unitOf(nx.question).title)}` : b('allAnswered')}</strong>
+        <small>${nx ? html`${b(nx.course.title)} · ${b('oneQuestion')} · ${b('leftInCourse')} ${nx.left.length}` : due.length ? b('keepReviewing') : b('nothingDue')}</small>
+      </span>
+      <span class="banner-go">${nx ? b('continue') : b('reviewNow')} →</span>
+    </button>
+    ${nx && due.length ? html`<button type="button" class="banner banner-sub" id="review-due">
+      <span class="banner-body"><strong>${b('reviewBannerTitle')}</strong><small>${due.length} ${b('reviewBannerSub')}</small></span>
+      <span class="banner-go">${b('reviewNow')} →</span></button>` : ''}
+
+    <section class="card map">
+      <h2>${b('mapTitle')}</h2>
+      <ol class="map-flow">
+        ${SECTIONS.map(sec => html`<li class="map-col">
+          <span class="map-label">${b(sec.label)}<small>${b(sec.desc)}</small></span>
+          <span class="map-nodes">${COURSES.filter(c => c.section === sec.id).map(c => { const st = courseStats(c, s); return html`
+            <a href="#/course/${c.id}" class="map-node ${st.ratio >= 1 ? 'done' : st.done ? 'started' : ''}" style="--c:${c.color};--p:${st.ratio}" title="${L(c.title)}">${c.code}</a>`; })}</span>
+        </li>`)}
       </ol>
+      <p class="muted small">${b({ ja: 'プレップで土台 → コアで再現実験から論文草稿まで → 選択で専門を深める', en: 'Prep builds the base → Core takes you from replication to a paper draft → Electives deepen a direction' })}</p>
     </section>
 
-    <section class="card">
-      <h2>${t('reviewQueue')} <span class="badge">${s.review.length}</span></h2>
-      ${review.length ? html`<p class="muted small">${t('reviewHint')}</p><form id="review-form">
-        ${review.map(({ x, q }) => html`<div class="review-item"><small class="muted">${x.course.code} · ${L(x.lesson.title)}</small>${quizHtml([q], 'rv-' + x.lesson.id, L)}</div>`)}
-        <button class="btn" type="submit">${t('checkAnswer')}</button></form>` : html`<p class="muted">${t('reviewEmpty')}</p>`}
-    </section>
+    <div class="row-between list-heading">
+      <h2>${b('yourCourses')} <small class="muted">${COURSES.length}</small></h2>
+      <input type="search" id="course-search" class="search" data-i18n-ph="searchCourses" placeholder="${pick('searchCourses')}" data-i18n-aria="searchCourses" aria-label="${pick('searchCourses')}" value="${search}">
+    </div>
+    <div class="filters" role="group">
+      ${['all', 'prep', 'core', 'elective'].map(f => html`<button type="button" class="tab" data-f="${f}" aria-pressed="${f === filter}">${b(f)} <small>${f === 'all' ? COURSES.length : COURSES.filter(c => c.section === f).length}</small></button>`)}
+    </div>
+    <div class="course-grid" id="course-grid"></div>`;
 
-    ${recent.length ? html`<section class="card"><div class="row-between"><h2>${t('recentEntries')}</h2><a href="#/notebook">${t('notebook')} →</a></div>
-      <ul class="entries compact">${recent.map(e => html`<li><span class="etype ${e.type}">${t(e.type)}</span> ${e.text.slice(0, 120)}</li>`)}</ul></section>` : ''}
-
-    <section class="card">
-      <h2>${t('sectionsMap')}</h2>
-      <div class="cmap">
-        ${SECTIONS.map(sec => html`<div class="cmap-col"><h3>${L(sec.short)}</h3>
-          ${COURSES.filter(c => c.section === sec.id).map(c => { const p = courseProgress(c, s.progress); return html`
-            <a class="cmap-node ${p.ratio >= 1 ? 'done' : p.started ? 'started' : ''}" href="#/course/${c.id}" style="--c:${c.color};--p:${p.ratio}">
-              <b>${c.code}</b><span>${L(c.title)}</span></a>`; })}
-        </div>`)}
-      </div>
-    </section>`;
-
-  const form = main.querySelector('#review-form');
-  if (form) form.addEventListener('submit', e => {
-    e.preventDefault();
-    const items = form.querySelectorAll('.review-item');
-    review.forEach(({ x, q }, i) => {
-      const [res] = gradeQuiz(items[i], [q], 'rv-' + x.lesson.id, L, t);
-      if (res.answered) store.resolveReview(x.key, q.id, res.correct);
-    });
-    form.querySelector('button[type=submit]').remove();
-    toast(t('saved'));
+  const grid = main.querySelector('#course-grid');
+  const draw = () => {
+    const q = search.toLowerCase();
+    grid.innerHTML = COURSES.filter(c => (filter === 'all' || c.section === filter) &&
+      (!q || [c.title.ja, c.title.en, c.code, ...c.units.flatMap(u => [u.title.ja, u.title.en, ...u.keywords])].join(' ').toLowerCase().includes(q)))
+      .map(c => { const st = courseStats(c, s); return html`
+        <a class="course-card" href="#/course/${c.id}" style="--c:${c.color}">
+          <span class="row-between card-meta"><span class="cat">${b(c.section)}</span><span class="chip" style="--c:${c.color}">${c.code}</span></span>
+          <h3>${b(c.title)}</h3>
+          <p class="muted small">${c.units.slice(0, 2).map((u, i) => html`${i ? ' / ' : ''}${b(u.title)}`)}</p>
+          <span class="row-between card-bottom"><span>${c.units.length} ${b('units')} · ${c.questions.length} ${b('questions')}</span>
+            <span>${st.done ? `${st.done}/${st.total}` : b('notStarted')}</span></span>
+          <span class="pbar"><span style="width:${Math.round(st.ratio * 100)}%"></span></span>
+        </a>`; }).join('');
+  };
+  draw();
+  main.querySelector('#course-search').addEventListener('input', e => { search = e.target.value; draw(); });
+  main.querySelectorAll('[data-f]').forEach(btn => btn.addEventListener('click', () => {
+    filter = btn.dataset.f; main.querySelectorAll('[data-f]').forEach(x => x.setAttribute('aria-pressed', String(x === btn))); draw();
+  }));
+  main.querySelector('#continue').addEventListener('click', () => {
+    if (nx) ctx.start([nx.question.id], true); else ctx.start(due.slice(0, 10).map(q => q.id));
   });
+  main.querySelector('#review-due')?.addEventListener('click', () => ctx.start(due.slice(0, 10).map(q => q.id)));
 }

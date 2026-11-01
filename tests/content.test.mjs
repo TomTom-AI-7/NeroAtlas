@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { COURSES, SECTIONS, LESSONS, RESOURCES, RESOURCE_MAP, COURSE_MAP } from '../content/index.js';
+import { COURSES, SECTIONS, RESOURCES, RESOURCE_MAP, COURSE_MAP, QUESTIONS, UNITS } from '../content/index.js';
+const LESSONS = COURSES.flatMap(c => c.lessons.map(lesson => ({ course: c, lesson })));
 import { WIDGET_IDS } from '../js/widgets/index.js';
 import { UI_STRINGS } from '../js/i18n.js';
 
@@ -83,4 +84,16 @@ test('service worker shell lists only existing files and every JS module', async
   for (const dir of ['js', 'js/views', 'js/widgets', 'content']) {
     for (const f of readdirSync(new URL('../' + dir, import.meta.url)).filter(f => f.endsWith('.js'))) assert.ok(files.includes(`${dir}/${f}`), `sw.js missing ${dir}/${f}`);
   }
+});
+
+test('every lesson becomes a unit: concept card, its questions, then one research task', () => {
+  assert.equal(UNITS.length, LESSONS.length);
+  for (const u of UNITS) {
+    assert.ok(u.lead.ja && u.lead.en, u.id);
+    assert.equal(u.questions.at(-1).type, 'task', `${u.id}: task last`);
+    assert.ok(u.questions.slice(0, -1).every(q => q.type === 'choice'), `${u.id}: checks first`);
+    for (const q of u.questions) { assert.equal(q.unit, u.id); assert.equal(q.course, u.course); }
+  }
+  const ids = QUESTIONS.map(q => q.id); assert.equal(new Set(ids).size, ids.length, 'question ids unique');
+  assert.equal(QUESTIONS[0].course, 'p1', 'study order starts with Prep');
 });

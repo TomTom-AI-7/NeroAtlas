@@ -1,19 +1,20 @@
-// Persistent learner state. Pure logic + a pluggable storage backend (localStorage in the browser,
-// an in-memory object in tests).
+// Learner records. Pure logic + a pluggable storage backend (localStorage in the browser,
+// an in-memory map in tests).
 
-export const STORAGE_KEY = 'neuroatlas.v1';
+export const STORAGE_KEY = 'neuroatlas.v2';
 export const DRAFT_SECTIONS = ['title', 'abstract', 'introduction', 'methods', 'results', 'discussion', 'references'];
+export const INTERVALS_DAYS = [1, 3, 7, 14, 30];
+const DAY = 86400000;
 
 export function emptyState() {
   return {
-    version: 1,
+    version: 2,
     lang: null,
-    theme: 'auto',
-    progress: {},      // { [lessonKey]: { done, steps: {concept,visual,practice,check,reflect}, quiz: {score,total,at}, practice: string, updatedAt } }
-    review: [],        // [{ key, qid }]
-    entries: [],       // [{ id, type: 'note'|'aha'|'question', text, key, resolved, at }]
+    scores: {},     // { [questionId]: { attempts, correct, last, streak, due } }   (due = ms timestamp)
+    tasks: {},      // { [questionId]: { text, done, at } }   research tasks
+    bookmarks: {},  // { [questionId]: true }
+    entries: [],    // [{ id, type: 'note'|'aha'|'question', text, qid, resolved, at }]
     draft: Object.fromEntries(DRAFT_SECTIONS.map(s => [s, ''])),
-    lastLesson: null,
   };
 }
 
@@ -21,143 +22,117 @@ function memoryBackend() {
   const m = new Map();
   return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
 }
-
 function safeBackend() {
-  try {
-    const ls = globalThis.localStorage;
-    const probe = '__na_probe__';
-    ls.setItem(probe, '1'); ls.removeItem(probe);
-    return ls;
-  } catch { return memoryBackend(); }
+  try { const ls = globalThis.localStorage; ls.setItem('__na', '1'); ls.removeItem('__na'); return ls; }
+  catch { return memoryBackend(); }
 }
 
-/** Merge unknown/partial data into a valid state (used for loading and importing). */
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+
+/** Coerce unknown data (storage, imported backups) into a valid state. */
 export function normalize(raw) {
-  const base = emptyState();
-  if (!raw || typeof raw !== 'object') return base;
-  const s = { ...base, ...raw };
-  delete s.app; delete s.exportedAt;
-  s.progress = raw.progress && typeof raw.progress === 'object' ? raw.progress : {};
-  s.review = Array.isArray(raw.review) ? raw.review.filter(r => r && r.key && r.qid) : [];
-  s.entries = Array.isArray(raw.entries)
-    ? raw.entries.filter(e => e && typeof e.text === 'string' && ['note', 'aha', 'question'].includes(e.type))
-    : [];
-  s.draft = { ...base.draft, ...(raw.draft && typeof raw.draft === 'object' ? raw.draft : {}) };
-  for (const k of DRAFT_SECTIONS) if (typeof s.draft[k] !== 'string') s.draft[k] = '';
-  if (!['auto', 'light', 'dark'].includes(s.theme)) s.theme = 'auto';
-  if (s.lang !== null && !['ja', 'en'].includes(s.lang)) s.lang = null;
+  const s = emptyState();
+  if (!isObj(raw)) return s;
+  if (['ja', 'en'].includes(raw.lang)) s.lang = raw.lang;
+  if (isObj(raw.scores)) for (const [k, v] of Object.entries(raw.scores)) if (isObj(v) && Number.isFinite(v.attempts)) s.scores[k] = v;
+  if (isObj(raw.tasks)) for (const [k, v] of Object.entries(raw.tasks)) if (isObj(v)) s.tasks[k] = { text: String(v.text || ''), done: !!v.done, at: v.at || null };
+  if (isObj(raw.bookmarks)) for (const [k, v] of Object.entries(raw.bookmarks)) if (v) s.bookmarks[k] = true;
+  if (Array.isArray(raw.entries)) s.entries = raw.entries.filter(e => isObj(e) && typeof e.text === 'string' && ['note', 'aha', 'question'].includes(e.type));
+  if (isObj(raw.draft)) for (const k of DRAFT_SECTIONS) if (typeof raw.draft[k] === 'string') s.draft[k] = raw.draft[k];
   return s;
 }
 
 let idCounter = 0;
-export function newId() { idCounter += 1; return `${Date.now().toString(36)}-${idCounter.toString(36)}-${Math.random().toString(36).slice(2, 6)}`; }
+const newId = () => `${Date.now().toString(36)}-${(++idCounter).toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
-export function createStore(backend = safeBackend()) {
+export function createStore(backend = safeBackend(), now = () => Date.now()) {
   let state;
   try { state = normalize(JSON.parse(backend.getItem(STORAGE_KEY) || 'null')); } catch { state = emptyState(); }
-  const listeners = new Set();
-  const save = () => {
-    try { backend.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* quota or private mode: keep in memory */ }
-    listeners.forEach(fn => fn(state));
-  };
-  const lessonState = key => (state.progress[key] ||= { done: false, steps: {}, quiz: null, practice: '', updatedAt: null });
+  const save = () => { try { backend.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* private mode / quota: keep in memory */ } };
 
   return {
     get state() { return state; },
-    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    setLang(l) { state.lang = l; save(); },
 
-    setPref(k, v) { state[k] = v; save(); },
-
-    lesson(key) { return state.progress[key] || { done: false, steps: {}, quiz: null, practice: '' }; },
-    markStep(key, step) { const l = lessonState(key); l.steps[step] = true; l.updatedAt = new Date().toISOString(); state.lastLesson = key; save(); },
-    setPractice(key, text) { const l = lessonState(key); l.practice = text; l.steps.practice = true; l.updatedAt = new Date().toISOString(); save(); },
-    complete(key) { const l = lessonState(key); l.done = true; l.updatedAt = new Date().toISOString(); state.lastLesson = key; save(); },
-    uncomplete(key) { const l = lessonState(key); l.done = false; save(); },
-
-    /** Record quiz results. `results` = [{ qid, correct }]. Wrong answers enter the review queue. */
-    recordQuiz(key, results) {
-      const l = lessonState(key);
-      const score = results.filter(r => r.correct).length;
-      l.quiz = { score, total: results.length, at: new Date().toISOString() };
-      l.steps.check = true;
-      for (const r of results) {
-        const i = state.review.findIndex(x => x.key === key && x.qid === r.qid);
-        if (!r.correct && i < 0) state.review.push({ key, qid: r.qid });
-        if (r.correct && i >= 0) state.review.splice(i, 1);
-      }
+    score(qid) { return state.scores[qid] || { attempts: 0, correct: 0, last: null, streak: 0, due: null }; },
+    /** Record an answer. Wrong → due now. Right → due after 1/3/7/14/30 days depending on the streak. */
+    record(qid, ok) {
+      const s = this.score(qid);
+      const streak = ok ? s.streak + 1 : 0;
+      state.scores[qid] = {
+        attempts: s.attempts + 1, correct: s.correct + (ok ? 1 : 0), last: ok, streak,
+        due: now() + (ok ? INTERVALS_DAYS[Math.min(streak - 1, INTERVALS_DAYS.length - 1)] * DAY : 0),
+      };
       save();
-      return l.quiz;
-    },
-    resolveReview(key, qid, correct) {
-      const i = state.review.findIndex(x => x.key === key && x.qid === qid);
-      if (correct && i >= 0) { state.review.splice(i, 1); save(); }
+      return state.scores[qid];
     },
 
-    addEntry(type, text, key = null) {
-      const e = { id: newId(), type, text: text.trim(), key, resolved: false, at: new Date().toISOString() };
-      if (!e.text) return null;
+    /** Research tasks are never "due"; saving or skipping both move the flow on. */
+    saveTask(qid, text, done) {
+      state.tasks[qid] = { text, done, at: new Date(now()).toISOString() };
+      const s = this.score(qid);
+      state.scores[qid] = { attempts: s.attempts + 1, correct: s.correct + (done ? 1 : 0), last: done, streak: 0, due: null, task: true };
+      save();
+    },
+
+    toggleBookmark(qid) { if (state.bookmarks[qid]) delete state.bookmarks[qid]; else state.bookmarks[qid] = true; save(); return !!state.bookmarks[qid]; },
+
+    addEntry(type, text, qid = null) {
+      const t = text.trim(); if (!t) return null;
+      const e = { id: newId(), type, text: t, qid, resolved: false, at: new Date(now()).toISOString() };
       state.entries.unshift(e); save(); return e;
     },
     updateEntry(id, patch) { const e = state.entries.find(x => x.id === id); if (e) { Object.assign(e, patch); save(); } },
     deleteEntry(id) { state.entries = state.entries.filter(x => x.id !== id); save(); },
 
     setDraft(section, text) { if (DRAFT_SECTIONS.includes(section)) { state.draft[section] = text; save(); } },
-    appendDraft(section, text, label = '') {
+    /** Add a labelled block to a draft section; a later answer from the same task replaces its block. */
+    appendDraft(section, text, label) {
       if (!DRAFT_SECTIONS.includes(section) || !text.trim()) return;
-      const block = label ? `<!-- ${label} -->\n${text.trim()}` : text.trim();
-      // Replace an earlier block from the same lesson instead of duplicating it.
-      if (label) {
-        const re = new RegExp(`<!-- ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -->\\n[\\s\\S]*?(?=\\n\\n<!-- |$)`);
-        if (re.test(state.draft[section])) { state.draft[section] = state.draft[section].replace(re, block); save(); return; }
-      }
-      state.draft[section] = state.draft[section] ? `${state.draft[section]}\n\n${block}` : block;
+      const block = `<!-- ${label} -->\n${text.trim()}`;
+      const re = new RegExp(`<!-- ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -->\\n[\\s\\S]*?(?=\\n\\n<!-- |$)`);
+      const cur = state.draft[section];
+      state.draft[section] = re.test(cur) ? cur.replace(re, block) : (cur ? `${cur}\n\n${block}` : block);
       save();
     },
 
-    importState(raw) { state = normalize(raw); save(); },
-    reset() { const lang = state.lang, theme = state.theme; state = emptyState(); state.lang = lang; state.theme = theme; save(); },
+    importState(raw) { const lang = state.lang; state = normalize(raw); state.lang = lang; save(); },
+    reset() { const lang = state.lang; state = emptyState(); state.lang = lang; save(); },
   };
 }
 
-// ---------- Derived progress (pure) ----------
+// ---------- derived (pure) ----------
+export const attempted = (state, q) => (state.scores[q.id]?.attempts || 0) > 0;
 
-export function courseProgress(course, progress) {
-  const total = course.lessons.length;
-  const done = course.lessons.filter(l => progress[`${course.id}/${l.id}`]?.done).length;
-  let qs = 0, qt = 0;
-  for (const l of course.lessons) { const q = progress[`${course.id}/${l.id}`]?.quiz; if (q) { qs += q.score; qt += q.total; } }
-  const started = course.lessons.some(l => { const p = progress[`${course.id}/${l.id}`]; return p && (p.done || Object.keys(p.steps || {}).length); });
-  return { done, total, ratio: total ? done / total : 0, mastery: qt ? qs / qt : null, started };
+/** Choice questions whose review date has come. Tasks never come back. */
+export function dueQuestions(questions, state, t = Date.now()) {
+  return questions.filter(q => q.type === 'choice' && state.scores[q.id] && state.scores[q.id].due <= t);
 }
 
-export function sectionProgress(courses, section, progress) {
-  const cs = courses.filter(c => c.section === section);
-  const total = cs.reduce((a, c) => a + c.lessons.length, 0);
-  const done = cs.reduce((a, c) => a + courseProgress(c, progress).done, 0);
-  return { done, total, ratio: total ? done / total : 0 };
-}
-
-/** Next lesson to study: first incomplete lesson of the last-touched course, else first incomplete in curriculum order (prep → core). */
-export function nextLesson(lessons, state) {
-  const incomplete = x => !state.progress[x.key]?.done;
-  if (state.lastLesson) {
-    const last = lessons.find(x => x.key === state.lastLesson);
-    if (last) {
-      if (incomplete(last)) return last;
-      const same = lessons.find(x => x.course.id === last.course.id && incomplete(x));
-      if (same) return same;
-    }
+/** First unanswered question in curriculum order (prep → core → electives), with its course's remaining count. */
+export function nextUp(courses, state) {
+  for (const c of courses) {
+    const left = c.questions.filter(q => !attempted(state, q));
+    if (left.length) return { course: c, question: left[0], left };
   }
-  return lessons.find(x => x.course.section !== 'elective' && incomplete(x)) || lessons.find(incomplete) || null;
+  return null;
 }
 
-/** Research pipeline milestones derived from progress + draft. */
-export function pipelineStatus(state) {
-  const done = k => !!state.progress[k]?.done;
-  const theory = ['p1/p1-1', 'c1/c1-1', 'c2/c2-2'].filter(done).length / 3;
-  const replicate = ['c3/c3-3', 'c4/c4-2', 'c7/c7-3'].filter(done).length / 3;
-  const hypothesis = ['c6/c6-2', 'c9/c9-1', 'c9/c9-2'].filter(done).length / 3;
-  const d = state.draft;
-  const draft = ['abstract', 'introduction', 'methods', 'discussion'].filter(s => (d[s] || '').trim().length > 40).length / 4;
-  return { theory, replicate, hypothesis, draft };
+export function courseStats(course, state) {
+  const total = course.questions.length;
+  const done = course.questions.filter(q => attempted(state, q)).length;
+  let a = 0, c = 0;
+  for (const q of course.questions) { const s = state.scores[q.id]; if (s && q.type === 'choice') { a += s.attempts; c += s.correct; } }
+  return { done, total, ratio: total ? done / total : 0, accuracy: a ? c / a : null };
+}
+
+export function overall(questions, state) {
+  let a = 0, c = 0, n = 0;
+  for (const q of questions) { const s = state.scores[q.id]; if (s?.attempts) { n++; if (q.type === 'choice') { a += s.attempts; c += s.correct; } } }
+  return { answered: n, total: questions.length, accuracy: a ? c / a : null };
+}
+
+/** Has the learner already worked on another question in this unit? Then the concept card starts collapsed. */
+export function unitSeen(questions, state, q) {
+  return questions.some(x => x.unit === q.unit && x.id !== q.id && attempted(state, x));
 }
