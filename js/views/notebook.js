@@ -1,7 +1,8 @@
 import { html, toast, esc } from '../dom.js';
 import { LESSONS } from '../../content/index.js';
 import { DRAFT_SECTIONS } from '../store.js';
-import { buildMarkdown, buildCsv, buildJson, buildProposal, download } from '../export.js';
+import { buildMarkdown, buildCsv, buildJson, buildProposal } from '../export.js';
+import { showExport, confirmButton } from './exportpanel.js';
 
 const TABS = ['note', 'aha', 'question', 'practice', 'draft'];
 const TAB_LABEL = { note: 'note', aha: 'aha', question: 'question', practice: 'stepPractice', draft: 'draft' };
@@ -24,6 +25,7 @@ export function render(main, ctx, params) {
         <button class="btn btn-small ghost" data-exp="json">${t('exportJson')}</button>
         <button class="btn btn-small ghost" data-exp="proposal">${t('exportProposal')}</button>
       </div>
+      <div id="export-panel" class="export-panel" hidden></div>
     </section>
     <nav class="tabs" role="tablist">${TABS.map(x => html`<button type="button" role="tab" class="tab" data-tab="${x}">${t(TAB_LABEL[x])}</button>`)}</nav>
     <div id="nb-panel"></div>`;
@@ -31,10 +33,15 @@ export function render(main, ctx, params) {
   main.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', () => {
     const s = store.state;
     const kind = b.dataset.exp;
-    if (kind === 'md') download(`neuroatlas-notebook-${stamp()}.md`, buildMarkdown(s, LESSONS, ctx.lang), 'text/markdown;charset=utf-8');
-    if (kind === 'csv') download(`neuroatlas-notes-${stamp()}.csv`, buildCsv(s, LESSONS, ctx.lang), 'text/csv;charset=utf-8');
-    if (kind === 'json') download(`neuroatlas-backup-${stamp()}.json`, buildJson(s), 'application/json');
-    if (kind === 'proposal') download(`neuroatlas-proposal-${stamp()}.md`, buildProposal(s), 'text/markdown;charset=utf-8');
+    const host = main.querySelector('#export-panel');
+    const files = {
+      md: [`neuroatlas-notebook-${stamp()}.md`, () => buildMarkdown(s, LESSONS, ctx.lang), 'text/markdown;charset=utf-8'],
+      csv: [`neuroatlas-notes-${stamp()}.csv`, () => buildCsv(s, LESSONS, ctx.lang), 'text/csv;charset=utf-8'],
+      json: [`neuroatlas-backup-${stamp()}.json`, () => buildJson(s), 'application/json'],
+      proposal: [`neuroatlas-proposal-${stamp()}.md`, () => buildProposal(s), 'text/markdown;charset=utf-8'],
+    };
+    const [filename, build, mime] = files[kind];
+    showExport(host, { filename, content: build(), mime }, t);
   }));
   const tabBtns = [...main.querySelectorAll('[data-tab]')];
   tabBtns.forEach(b => b.addEventListener('click', () => { tab = lastTab = b.dataset.tab; draw(); }));
@@ -56,22 +63,20 @@ export function render(main, ctx, params) {
       <input type="search" id="nb-search" class="search" placeholder="${t('search')}" aria-label="${t('search')}" value="${query}">
       <ul class="entries" id="nb-list"></ul>`.toString();
     const list = panel.querySelector('#nb-list');
+    const wireDelete = () => list.querySelectorAll('[data-act=del]').forEach(b => confirmButton(b, t('confirmDelete'), () => { store.deleteEntry(b.closest('.entry').dataset.id); drawList(); }));
     const drawList = () => {
       const es = store.state.entries.filter(e => e.type === tab && (!query || e.text.toLowerCase().includes(query.toLowerCase())));
       if (!es.length) { list.innerHTML = `<li class="muted">${esc(t('emptyEntries'))}</li>`; return; }
       list.innerHTML = es.map(e => `<li class="entry" data-id="${esc(e.id)}">
         <div class="entry-meta"><small class="muted">${esc(e.at.slice(0, 10))}${e.key ? ' · <a href="#/lesson/' + esc(e.key) + '">' + esc(lessonLabel(e.key)) + '</a>' : ''}</small>
           <span class="entry-actions">${tab === 'question' ? `<label class="small"><input type="checkbox" data-act="resolve" ${e.resolved ? 'checked' : ''}> ${esc(t('resolved'))}</label>` : ''}
-          <button class="link-btn" data-act="del" aria-label="${esc(t('delete'))}">✕</button></span></div>
+          <button class="link-btn" data-act="del" aria-label="${esc(t('delete'))}">${esc(t('delete'))}</button></span></div>
         <div class="entry-text ${e.resolved ? 'resolved' : ''}" contenteditable="plaintext-only" data-act="edit">${esc(e.text)}</div></li>`).join('');
+      wireDelete();
     };
     drawList();
     panel.querySelector('#nb-add').addEventListener('click', () => { const ta = panel.querySelector('#nb-new'); if (store.addEntry(tab, ta.value)) { ta.value = ''; drawList(); toast(t('saved')); } });
     panel.querySelector('#nb-search').addEventListener('input', e => { query = e.target.value; drawList(); });
-    list.addEventListener('click', e => {
-      const li = e.target.closest('.entry'); if (!li) return;
-      if (e.target.dataset.act === 'del' && confirm(t('delete') + '?')) { store.deleteEntry(li.dataset.id); drawList(); }
-    });
     list.addEventListener('change', e => { const li = e.target.closest('.entry'); if (li && e.target.dataset.act === 'resolve') { store.updateEntry(li.dataset.id, { resolved: e.target.checked }); drawList(); } });
     list.addEventListener('focusout', e => { const li = e.target.closest('.entry'); if (li && e.target.dataset.act === 'edit') store.updateEntry(li.dataset.id, { text: e.target.innerText.trim() }); });
   }

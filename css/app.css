@@ -279,3 +279,9 @@ textarea.code { font: .82rem/1.5 var(--mono); background: var(--surface-2); whit
 /* SVG hotspots show focus via their own stroke highlight instead of a box outline */
 .region:focus-visible, .electrode:focus-visible, .imrad-part:focus-visible { outline: none; }
 .region:focus, .electrode:focus, .imrad-part:focus { outline: none; }
+.export-panel { margin-top: .8rem; display: grid; gap: .5rem; }
+.paste-import { margin-top: .8rem; }
+.paste-import summary { cursor: pointer; color: var(--accent); font-weight: 600; min-height: 36px; }
+.paste-import textarea { margin: .4rem 0; }
+.armed { background: var(--danger) !important; border-color: var(--danger) !important; color: #fff !important; border-radius: 8px; }
+.link-btn[data-act=del] { font-size: .8rem; }

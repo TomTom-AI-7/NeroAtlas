@@ -69,7 +69,7 @@ const UI = {
   themeLight: { ja: 'ライト', en: 'Light' },
   themeDark: { ja: 'ダーク', en: 'Dark' },
   reset: { ja: '全データをリセット', en: 'Reset all data' },
-  resetConfirm: { ja: '進捗・ノート・草稿をすべて削除します。先にJSONでバックアップしましたか？', en: 'This deletes all progress, notes and draft. Did you back up as JSON?' },
+  resetConfirm: { ja: 'リセットすると進捗・ノート・草稿がすべて消えます。先にJSONでバックアップしてください（2回押しで実行）。', en: 'Resetting erases all progress, notes and the draft. Back up as JSON first (tap twice to confirm).' },
   dataNote: { ja: 'データはこの端末のブラウザにのみ保存されます（サーバー送信なし）。機種変更前にJSONでバックアップしてください。', en: 'Data stays in this browser only (nothing is sent to a server). Back up as JSON before switching devices.' },
   copyrightTitle: { ja: '著作権と利用条件', en: 'Copyright & terms' },
   copyrightBody: { ja: 'NeuroAtlas の解説・図・演習・クイズ・コードは独自に作成したものです。外部教材は公式リンクと利用条件のみ掲載し、有料教材や書籍の本文・PDF は転載しません。Google Drive の個人保管ファイルは本人の学習用リンクで、共有・再配布はできません。', en: 'All explanations, visuals, exercises, quizzes and code in NeuroAtlas are original. External materials are listed as official links with access terms only; paid course or book content is never reproduced. Google Drive links point to your personal copies and must not be shared or redistributed.' },
@@ -101,6 +101,13 @@ const UI = {
   todo: { ja: '未着手', en: 'Not started' },
   inProgress: { ja: '学習中', en: 'In progress' },
   fromLesson: { ja: '出典レッスン', en: 'From lesson' },
+  close: { ja: '閉じる', en: 'Close' },
+  downloadFile: { ja: 'ファイルを保存', en: 'Save file' },
+  exportHint: { ja: '保存ボタンが効かない環境では「コピー」してメモアプリ等に貼り付けてください。', en: 'If saving is blocked in this viewer, copy the text and paste it into a notes app.' },
+  selectToCopy: { ja: '選択しました。長押し／Ctrl+C でコピー', en: 'Selected — long-press or Ctrl+C to copy' },
+  pasteImport: { ja: 'JSONを貼り付けて復元', en: 'Restore by pasting JSON' },
+  confirmDelete: { ja: 'もう一度押して削除', en: 'Tap again to delete' },
+  confirmReset: { ja: 'もう一度押すと全削除', en: 'Tap again to erase everything' },
   allDone: { ja: 'すべてのレッスンを完了しました！ 草稿を仕上げましょう。', en: 'All lessons complete! Time to polish your draft.' },
 };
 
