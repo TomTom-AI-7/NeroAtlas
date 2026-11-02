@@ -10,7 +10,9 @@ A course-based learning app for **neuroscience, BCI and mental-health research**
 python3 -m http.server 8000     # or: npm start
 # open http://localhost:8000
 ```
-ビルド不要の静的サイト（ES Modules）なので GitHub Pages 等にそのまま置けます。`file://` では動きません（ES Modules のため）。
+静的サイト（ES Modules）。`file://` では動きません。
+
+**公開**: Cloudflare Pages（Build command `node scripts/build.mjs`、Output `dist`）。手順は [`docs/DEPLOY.md`](docs/DEPLOY.md)。
 
 ## 構成 / What's inside
 

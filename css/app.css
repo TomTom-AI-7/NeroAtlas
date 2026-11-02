@@ -478,3 +478,9 @@ body { background:
   .unit-row:hover, .review-row:hover { background: var(--surface-2); }
 }
 .btn:active, .banner:active:not(:disabled), .pill-btn:active, .opt:active:not(:disabled) { transform: translateY(0) scale(.99); }
+
+/* logo: black tile, white lines; a hairline edge keeps the tile visible on dark backgrounds */
+.brand .logo { width: 30px; height: 30px; }
+.logo-tile { fill: #0b0b0b; stroke: transparent; stroke-width: 2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-tile { stroke: rgba(255, 255, 255, .22); } }
+:root[data-theme="dark"] .logo-tile { stroke: rgba(255, 255, 255, .22); }
