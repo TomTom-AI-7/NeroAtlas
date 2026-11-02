@@ -39,3 +39,9 @@ Safari で公開 URL を開く → 共有 → **ホーム画面に追加**。黒
 - 学習記録はブラウザ（端末）ごとに保存される。今の claude.ai のリンクで解いた記録は引き継がれないので、
   必要ならノート →「バックアップ(JSON)」→ 新しい URL のノート →「データ」→ 復元。
 - 「ブラウザで実行」（Pyodide）は `cdn.jsdelivr.net` から読み込むので、Cloudflare 版ではそのまま動く。
+
+## Vercel の場合
+
+`vercel.json` にビルド設定が入っているので、Vercel では **Add New → Project → `TomTom-AI-7/NeroAtlas` を Import → Deploy** だけで動く
+（Build Command `node scripts/build.mjs`、Output Directory `dist` は自動で読み込まれる）。
+本番にするブランチは Settings → Git → Production Branch で `claude/neuroatlas-mvp`（または `main` にマージ）。

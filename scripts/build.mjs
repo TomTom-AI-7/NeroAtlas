@@ -1,4 +1,4 @@
-// Build the static site for Cloudflare Pages: copy only what the web app serves into dist/.
+// Build the static site (Cloudflare Pages or Vercel): copy only what the web app serves into dist/.
 // Cloudflare Pages settings — Build command: node scripts/build.mjs   Output directory: dist
 import { cpSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -13,7 +13,7 @@ for (const f of FILES) cpSync(f, `${OUT}/${f}`);
 for (const d of DIRS) cpSync(d, `${OUT}/${d}`, { recursive: true });
 
 // A new cache name per deploy, so installed copies pick up the update on next launch.
-let rev = process.env.CF_PAGES_COMMIT_SHA || '';
+let rev = process.env.CF_PAGES_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || '';
 if (!rev) { try { rev = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { rev = String(Date.now()); } }
 const sw = readFileSync(`${OUT}/sw.js`, 'utf8').replace(/const VERSION = '[^']*';/, `const VERSION = 'neuroatlas-${rev.slice(0, 12)}';`);
 writeFileSync(`${OUT}/sw.js`, sw);
