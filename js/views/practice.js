@@ -19,6 +19,7 @@ export function render(main, ctx) {
   let cleanupFig = () => {};
 
   if (ses.index >= ses.ids.length) return complete();
+  if (ses.peek) return renderPeek(QUESTION_MAP[ses.peek]);
 
   const q = QUESTION_MAP[ses.ids[ses.index]];
   const unit = UNIT_MAP[q.unit];
@@ -36,23 +37,13 @@ export function render(main, ctx) {
       </div>
       ${ses.ids.length > 1 ? html`<span class="pbar"><span style="width:${(ses.index / ses.ids.length) * 100}%"></span></span>` : ''}
       <div class="row-between">
-        <a class="muted small" href="#/course/${course.id}"><span class="chip" style="--c:${course.color}">${course.code}</span> ${b(course.title)}</a>
-        <button type="button" class="star" id="star" aria-pressed="${starred}" data-i18n-aria="saveQuestion" aria-label="${pick('saveQuestion')}">${starred ? '★' : '☆'}</button>
+        <a class="muted small" href="#/course/${course.id}"><span class="chip">${course.code}</span> ${b(course.title)}</a>
+        <span class="q-tools">
+          ${prevOf(q.id) ? html`<button type="button" class="link-btn" id="prev">← ${b('prevQuestion')}</button>` : ''}
+          <button type="button" class="star" id="star" aria-pressed="${starred}" data-i18n-aria="saveQuestion" aria-label="${pick('saveQuestion')}">${starred ? '★' : '☆'}</button>
+        </span>
       </div>
-
-      <section class="teach ${open ? 'open' : ''}" id="teach">
-        <div class="row-between">
-          <span class="eyebrow">${b('concept')}</span>
-          <button type="button" class="text-btn" id="teach-toggle" aria-expanded="${open}"><span class="when-open">${b('hide')}</span><span class="when-closed">${b('read')}</span></button>
-        </div>
-        <h2>${b(unit.title)}</h2>
-        <div class="teach-body">
-          ${unit.figure ? html`<figure class="teach-figure"><div class="viz" id="fig"></div>${unit.figure.caption ? html`<figcaption class="muted small">${b(unit.figure.caption)}</figcaption>` : ''}</figure>` : ''}
-          <p class="teach-lead">${b(unit.lead)}</p>
-          ${unit.points.length ? html`<ul class="teach-points">${unit.points.map(p => html`<li>${b(p)}</li>`)}</ul>` : ''}
-          ${unit.keywords.length ? html`<p class="kw">${unit.keywords.map(k => html`<span class="tag">${k}</span>`)}</p>` : ''}
-        </div>
-      </section>
+      ${teachHtml(unit, open)}
 
       ${q.figure ? html`<figure class="q-figure"><div class="viz" id="qfig"></div></figure>` : ''}
       ${{ choice: choiceHtml, number: numberHtml, electrode: electrodeHtml, code: codeHtml, order: orderHtml, task: taskHtml }[q.type]()}
@@ -61,9 +52,6 @@ export function render(main, ctx) {
 
       <details class="memo" id="memo">
         <summary>${b('memoTitle')}</summary>
-        <div class="seg" role="radiogroup">
-          ${['note', 'aha', 'question'].map((ty, i) => html`<button type="button" role="radio" class="etype-btn ${ty}" data-type="${ty}" aria-checked="${i === 0}">${b(ty)}</button>`)}
-        </div>
         <textarea id="memo-text" rows="3" data-i18n-aria="memoTitle" aria-label="${pick('memoTitle')}"></textarea>
         <button type="button" class="btn btn-small" id="memo-save">${b('add')}</button>
         <ul class="entries compact" id="memo-list"></ul>
@@ -74,30 +62,22 @@ export function render(main, ctx) {
   const teach = main.querySelector('#teach');
   let figMounted = false;
   const mountFig = () => { if (unit.figure && !figMounted) { figMounted = true; cleanupFig = mountWidget(unit.figure.widget, main.querySelector('#fig'), unit.figure.props, ctx); } };
-  if (open) mountFig();
-  main.querySelector('#teach-toggle').addEventListener('click', e => {
-    const now = !teach.classList.contains('open');
-    teach.classList.toggle('open', now); e.currentTarget.setAttribute('aria-expanded', String(now));
-    if (now) mountFig();
-  });
+  wireTeach(teach, mountFig, open);
 
   main.querySelector('#star').addEventListener('click', e => {
     const on = store.toggleBookmark(q.id);
     e.currentTarget.textContent = on ? '★' : '☆'; e.currentTarget.setAttribute('aria-pressed', String(on));
   });
 
-  // ---- memo ----
-  let memoType = 'note';
+  // ---- note ----
   const memoList = main.querySelector('#memo-list');
-  const drawMemos = () => { memoList.innerHTML = store.state.entries.filter(e => e.qid === q.id).map(e => `<li><span class="etype ${e.type}">${b(e.type)}</span> ${esc(e.text)}</li>`).join(''); };
+  const drawMemos = () => { memoList.innerHTML = store.state.entries.filter(e => e.qid === q.id).map(e => `<li>${esc(e.text)}</li>`).join(''); };
   drawMemos();
-  main.querySelectorAll('.etype-btn').forEach(btn => btn.addEventListener('click', () => {
-    memoType = btn.dataset.type; main.querySelectorAll('.etype-btn').forEach(x => x.setAttribute('aria-checked', String(x === btn)));
-  }));
   main.querySelector('#memo-save').addEventListener('click', () => {
     const ta = main.querySelector('#memo-text');
-    if (store.addEntry(memoType, ta.value, q.id)) { ta.value = ''; drawMemos(); toast(pick('saved')); }
+    if (store.addEntry('note', ta.value, q.id)) { ta.value = ''; drawMemos(); toast(pick('saved')); }
   });
+  main.querySelector('#prev')?.addEventListener('click', () => { ses.peek = prevOf(q.id); render(main, ctx); scrollTo({ top: 0 }); });
 
   const fb = main.querySelector('#feedback');
   let cleanupQFig = () => {};
@@ -212,8 +192,8 @@ export function render(main, ctx) {
   }
 
   // ---------- code completion ----------
-  function fillCode(fragment) {
-    return html`${q.code.split('____').map((part, i, arr) => html`${part}${i < arr.length - 1 ? html`<mark>${fragment}</mark>` : ''}`)}`;
+  function fillCode(fragment, qq = q) {
+    return html`${qq.code.split('____').map((part, i, arr) => html`${part}${i < arr.length - 1 ? html`<mark>${fragment}</mark>` : ''}`)}`;
   }
   function codeHtml() {
     return html`<h1 class="question">${b(q.q)}</h1>
@@ -313,6 +293,67 @@ export function render(main, ctx) {
       if (id && id !== q.id) ctx.start([id], true); else ctx.go('#/');
       scrollTo({ top: 0 });
     });
+  }
+
+  // ---------- concept card (shared by practice and look-back) ----------
+  function teachHtml(u, isOpen) {
+    return html`<section class="teach ${isOpen ? 'open' : ''}" id="teach">
+      <div class="row-between">
+        <span class="eyebrow">${b('concept')}</span>
+        <button type="button" class="text-btn" id="teach-toggle" aria-expanded="${isOpen}"><span class="when-open">${b('hide')}</span><span class="when-closed">${b('read')}</span></button>
+      </div>
+      <h2>${b(u.title)}</h2>
+      <div class="teach-body">
+        ${u.figure ? html`<figure class="teach-figure"><div class="viz" id="fig"></div>${u.figure.caption ? html`<figcaption class="muted small">${b(u.figure.caption)}</figcaption>` : ''}</figure>` : ''}
+        <p class="teach-lead">${b(u.lead)}</p>
+        ${u.points.length ? html`<ul class="teach-points">${u.points.map(p => html`<li>${b(p)}</li>`)}</ul>` : ''}
+        ${u.keywords.length ? html`<p class="kw">${u.keywords.map(k => html`<span class="tag">${k}</span>`)}</p>` : ''}
+      </div>
+    </section>`;
+  }
+  function wireTeach(el, mount, isOpen) {
+    if (isOpen) mount();
+    el.querySelector('#teach-toggle').addEventListener('click', e => {
+      const now = !el.classList.contains('open');
+      el.classList.toggle('open', now); e.currentTarget.setAttribute('aria-expanded', String(now));
+      if (now) mount();
+    });
+  }
+
+  // ---------- look back at the previous question (fmva's "← Prev") ----------
+  function prevOf(id) { const i = QUESTIONS.findIndex(x => x.id === id); return i > 0 ? QUESTIONS[i - 1].id : null; }
+  function answerHtml(pq) {
+    switch (pq.type) {
+      case 'number': return html`<p><strong>${b('answerIs')}</strong><span class="tabnum">${format(pq.answer)}${pq.percent ? '%' : ''}</span></p>${pq.formula ? html`<p class="worked"><code>${pq.formula}</code></p>` : ''}`;
+      case 'electrode': return html`<p><strong>${b('answerIs')}</strong>${pq.answer.join(' / ')}</p>`;
+      case 'order': return html`<ol class="order-answer">${pq.items.map(it => html`<li>${b(it)}</li>`)}</ol>`;
+      case 'code': return html`<pre class="code-block filled">${fillCode(pq.options[pq.answer], pq)}</pre>`;
+      case 'task': { const t = store.state.tasks[pq.id]?.text; return t ? html`<pre class="practice-out">${t}</pre>` : ''; }
+      default: return html`<p><strong>${b('answerIs')}</strong>${b(pq.options[pq.answer])}</p>`;
+    }
+  }
+  function renderPeek(pq) {
+    const pu = UNIT_MAP[pq.unit], pc = COURSE_MAP[pq.course];
+    main.innerHTML = html`
+      <a class="back" href="#/">← ${b('backToLearning')}</a>
+      <div class="practice">
+        <p class="peek-banner">${b('peekNote')}</p>
+        <div class="row-between">
+          <a class="muted small" href="#/course/${pc.id}"><span class="chip">${pc.code}</span> ${b(pc.title)}</a>
+          ${prevOf(pq.id) ? html`<button type="button" class="link-btn" id="prev">← ${b('prevQuestion')}</button>` : ''}
+        </div>
+        ${teachHtml(pu, true)}
+        ${pq.figure ? html`<figure class="q-figure"><div class="viz" id="qfig"></div></figure>` : ''}
+        <h1 class="question">${b(pq.q || pq.task)}</h1>
+        <section class="feedback past">${answerHtml(pq)}${pq.explain ? html`<p>${b(pq.explain)}</p>` : ''}
+          <div class="btn-row"><button type="button" class="btn" id="resume">${b('backToCurrent')} →</button></div></section>
+      </div>`;
+    let c1 = () => {}, c2 = () => {};
+    wireTeach(main.querySelector('#teach'), () => { if (pu.figure) c1 = mountWidget(pu.figure.widget, main.querySelector('#fig'), pu.figure.props, ctx); }, true);
+    if (pq.figure) c2 = mountWidget('stimulus', main.querySelector('#qfig'), pq.figure, ctx);
+    main.querySelector('#prev')?.addEventListener('click', () => { c1(); c2(); ses.peek = prevOf(pq.id); render(main, ctx); scrollTo({ top: 0 }); });
+    main.querySelector('#resume').addEventListener('click', () => { c1(); c2(); ses.peek = null; render(main, ctx); scrollTo({ top: 0 }); });
+    return () => { c1(); c2(); };
   }
 
   // ---------- session summary ----------

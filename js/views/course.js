@@ -2,7 +2,6 @@
 import { html } from '../dom.js';
 import { COURSE_MAP, RESOURCE_MAP } from '../../content/index.js';
 import { courseStats, attempted } from '../store.js';
-import { resourceItem } from './library.js';
 
 export function render(main, ctx, id) {
   const { store, b } = ctx;
@@ -11,12 +10,12 @@ export function render(main, ctx, id) {
   const s = store.state;
   const st = courseStats(c, s);
   const left = c.questions.filter(q => !attempted(s, q));
-  const chip = cid => { const x = COURSE_MAP[cid]; return x ? html`<a class="chip link" style="--c:${x.color}" href="#/course/${x.id}">${x.code} ${b(x.title)}</a>` : ''; };
+  const chip = cid => { const x = COURSE_MAP[cid]; return x ? html`<a class="chip-link" href="#/course/${x.id}"><span class="chip">${x.code}</span>${b(x.title)}</a>` : ''; };
 
   main.innerHTML = html`
     <a class="back" href="#/">← ${b('learn')}</a>
-    <header class="course-head" style="--c:${c.color}">
-      <span class="row"><span class="chip" style="--c:${c.color}">${c.code}</span><span class="muted small">${b(c.section)}</span></span>
+    <header class="course-head">
+      <span class="row"><span class="chip">${c.code}</span><span class="muted small">${b(c.section)}</span></span>
       <h1>${b(c.title)}</h1>
       <p class="muted">${b(c.summary)}</p>
       <span class="pbar"><span style="width:${Math.round(st.ratio * 100)}%"></span></span>
@@ -45,6 +44,7 @@ export function render(main, ctx, id) {
     <details class="card">
       <summary><strong>${b('resources')}</strong></summary>
       <ul class="res-list">${c.resources.map(r => RESOURCE_MAP[r]).filter(Boolean).map(r => resourceItem(r, b))}</ul>
+      <p class="small muted">${b('copyrightBody')}</p>
     </details>`;
 
   main.querySelector('#go').addEventListener('click', () => {
@@ -56,4 +56,11 @@ export function render(main, ctx, id) {
     const open = u.questions.filter(q => !attempted(s, q));
     ctx.start((open.length ? open : u.questions).map(q => q.id));
   }));
+}
+
+function resourceItem(r, b) {
+  return html`<li class="res">
+    <a href="${r.url}" target="_blank" rel="noopener noreferrer">${r.title}</a>
+    <div class="res-meta"><span class="badge acc-${r.access}">${b('access_' + r.access)}</span><span class="badge">${b('type_' + r.type)}</span><span class="muted small">${r.provider}</span></div>
+    <p class="small muted">${b(r.note)}</p></li>`;
 }

@@ -88,12 +88,12 @@ test('normalize drops invalid data and export metadata', () => {
 
 test('exports contain notes, tasks and draft; CSV is escaped; backup round-trips', () => {
   const s = createStore(mem());
-  s.addEntry('question', 'Line1\n"quoted", comma', 'c2-2-q1');
+  s.addEntry('note', 'Line1\n"quoted", comma', 'c2-2-q1');
   const task = COURSE_MAP.c1.questions.find(q => q.type === 'task');
   s.saveTask(task.id, 'Can: timing', true);
   s.appendDraft('abstract', 'We test X.', 'C8 c8-3'); s.setDraft('title', 'Alpha and BDI-II');
   const md = buildMarkdown(s.state, COURSES, 'en');
-  assert.match(md, /## Questions \(1\)/); assert.match(md, /- \[ \] \*\*/); assert.match(md, /C2 · /); assert.match(md, /Can: timing/);
+  assert.match(md, /## Notes \(1\)/); assert.match(md, /- \*\*\d{4}-/); assert.match(md, /C2 · /); assert.match(md, /Can: timing/);
   assert.match(md, /### Abstract\n\nWe test X\./); assert.ok(!md.includes('<!--'));
   const csv = buildCsv(s.state, COURSES, 'en');
   assert.ok(csv.startsWith('﻿')); assert.ok(csv.includes('"Line1\n""quoted"", comma"'));

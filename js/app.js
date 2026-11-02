@@ -11,7 +11,6 @@ import * as course from './views/course.js';
 import * as practice from './views/practice.js';
 import * as review from './views/review.js';
 import * as notes from './views/notes.js';
-import * as library from './views/library.js';
 
 const store = createStore();
 const main = document.getElementById('main');
@@ -50,7 +49,6 @@ const NAV = [
   ['learn', '#/', 'M4 5h16v3H4zM4 10.5h16v3H4zM4 16h10v3H4z'],
   ['review', '#/review', 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6'],
   ['notes', '#/notes', 'M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM9 7h7M9 11h7M9 15h4'],
-  ['library', '#/library', 'M5 4h3v16H5zM10 4h3v16h-3zM15.5 4.5l2.9-.8 4 15.4-2.9.8z'],
 ];
 document.getElementById('nav').innerHTML = html`${NAV.map(([k, href, d]) => html`<a href="${href}" data-nav="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg><span>${b(k)}</span>${k === 'review' ? html`<b class="nav-badge" id="due-badge" hidden></b>` : ''}</a>`)}`;
 document.querySelector('.brand-tag').innerHTML = b('appTagline');
@@ -72,7 +70,6 @@ const ROUTES = [
   [/^\/practice$/, () => practice.render, 'learn'],
   [/^\/review$/, () => review.render, 'review'],
   [/^\/notes(?:\/(\w+))?$/, m => (el, c) => notes.render(el, c, m[1]), 'notes'],
-  [/^\/library$/, () => library.render, 'library'],
 ];
 
 function route() {

@@ -5,7 +5,7 @@ import { DRAFT_SECTIONS } from '../store.js';
 import { buildMarkdown, buildCsv, buildJson, buildProposal, questionLabel } from '../export.js';
 import { showExport, confirmButton } from './exportpanel.js';
 
-const TABS = ['note', 'aha', 'question', 'tasks', 'draft'];
+const TABS = ['note', 'tasks', 'draft'];
 let tab = 'note', query = '';
 
 export function render(main, ctx, tabParam) {
@@ -16,7 +16,7 @@ export function render(main, ctx, tabParam) {
 
   main.innerHTML = html`
     <h1>${b('notes')}</h1>
-    <nav class="tabs" role="tablist">${TABS.map(x => html`<button type="button" role="tab" class="tab" data-tab="${x}" aria-selected="${x === tab}">${b(x === 'note' ? 'note' : x)}</button>`)}</nav>
+    <nav class="tabs" role="tablist">${TABS.map(x => html`<button type="button" role="tab" class="tab" data-tab="${x}" aria-selected="${x === tab}">${b(x)}</button>`)}</nav>
     <div id="panel"></div>
     <section class="card">
       <h2 class="small-h">${b('export')}</h2>
@@ -67,26 +67,24 @@ export function render(main, ctx, tabParam) {
 
   function drawEntries() {
     panel.innerHTML = html`<div class="card">
-        <textarea id="new-entry" rows="3" data-i18n-aria="${tab}" aria-label="${pick(tab)}"></textarea>
+        <textarea id="new-entry" rows="3" data-i18n-aria="memoTitle" aria-label="${pick('memoTitle')}"></textarea>
         <button type="button" class="btn btn-small" id="add-entry">${b('add')}</button></div>
       <input type="search" id="q" class="search" data-i18n-ph="search" placeholder="${pick('search')}" aria-label="${pick('search')}" value="${query}">
       <ul class="entries" id="list"></ul>`.toString();
     const list = panel.querySelector('#list');
     const drawList = () => {
-      const es = store.state.entries.filter(e => e.type === tab && (!query || e.text.toLowerCase().includes(query.toLowerCase())));
+      const es = store.state.entries.filter(e => !query || e.text.toLowerCase().includes(query.toLowerCase()));
       if (!es.length) { list.innerHTML = `<li class="muted">${b('empty')}</li>`; return; }
       list.innerHTML = es.map(e => `<li class="entry" data-id="${esc(e.id)}">
         <div class="entry-meta"><small class="muted">${esc(e.at.slice(0, 10))}${e.qid && QUESTION_MAP[e.qid] ? ` · <button type="button" class="link-btn inline" data-open="${esc(e.qid)}">${label(e.qid)}</button>` : ''}</small>
-          <span class="entry-actions">${tab === 'question' ? `<label class="small"><input type="checkbox" data-act="resolve" ${e.resolved ? 'checked' : ''}> ${b('resolved')}</label>` : ''}
-          <button type="button" class="link-btn" data-del>${b('delete')}</button></span></div>
+          <span class="entry-actions"><button type="button" class="link-btn" data-del>${b('delete')}</button></span></div>
         <div class="entry-text ${e.resolved ? 'resolved' : ''}" contenteditable="plaintext-only" data-act="edit">${esc(e.text)}</div></li>`).join('');
       list.querySelectorAll('[data-del]').forEach(btn => confirmButton(btn, 'confirmDelete', () => { store.deleteEntry(btn.closest('.entry').dataset.id); drawList(); }));
       list.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => ctx.start([btn.dataset.open])));
     };
     drawList();
-    panel.querySelector('#add-entry').addEventListener('click', () => { const ta = panel.querySelector('#new-entry'); if (store.addEntry(tab, ta.value)) { ta.value = ''; drawList(); toast(pick('saved')); } });
+    panel.querySelector('#add-entry').addEventListener('click', () => { const ta = panel.querySelector('#new-entry'); if (store.addEntry('note', ta.value)) { ta.value = ''; drawList(); toast(pick('saved')); } });
     panel.querySelector('#q').addEventListener('input', e => { query = e.target.value; drawList(); });
-    list.addEventListener('change', e => { const li = e.target.closest('.entry'); if (li && e.target.dataset.act === 'resolve') { store.updateEntry(li.dataset.id, { resolved: e.target.checked }); drawList(); } });
     list.addEventListener('focusout', e => { const li = e.target.closest('.entry'); if (li && e.target.dataset.act === 'edit') store.updateEntry(li.dataset.id, { text: e.target.innerText.trim() }); });
   }
 

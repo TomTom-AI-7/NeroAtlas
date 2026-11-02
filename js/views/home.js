@@ -1,12 +1,12 @@
 // Home: one Continue button, a review button, the curriculum at a glance, then the course list.
 import { html } from '../dom.js';
-import { COURSES, QUESTIONS, SECTIONS } from '../../content/index.js';
+import { COURSES, QUESTIONS } from '../../content/index.js';
 import { nextUp, dueQuestions, overall, courseStats } from '../store.js';
 
 let filter = 'all', search = '';
 
 export function render(main, ctx) {
-  const { store, b, pick, L } = ctx;
+  const { store, b, pick } = ctx;
   const s = store.state;
   const nx = nextUp(COURSES, s);
   const due = dueQuestions(QUESTIONS, s);
@@ -30,7 +30,7 @@ export function render(main, ctx) {
 
     <button type="button" class="banner" id="continue" ${!nx && !due.length ? 'disabled' : ''}>
       <span class="banner-body">
-        <strong>${nx ? html`<span class="chip" style="--c:${nx.course.color}">${nx.course.code}</span> ${b(unitOf(nx.question).title)}` : b('allAnswered')}</strong>
+        <strong>${nx ? html`<span class="chip">${nx.course.code}</span> ${b(unitOf(nx.question).title)}` : b('allAnswered')}</strong>
         <small>${nx ? html`${b(nx.course.title)} · ${b('oneQuestion')} · ${b('leftInCourse')} ${nx.left.length}` : due.length ? b('keepReviewing') : b('nothingDue')}</small>
       </span>
       <span class="banner-go">${nx ? b('continue') : b('reviewNow')} →</span>
@@ -38,18 +38,6 @@ export function render(main, ctx) {
     ${nx && due.length ? html`<button type="button" class="banner banner-sub" id="review-due">
       <span class="banner-body"><strong>${b('reviewBannerTitle')}</strong><small>${due.length} ${b('reviewBannerSub')}</small></span>
       <span class="banner-go">${b('reviewNow')} →</span></button>` : ''}
-
-    <section class="card map">
-      <h2>${b('mapTitle')}</h2>
-      <ol class="map-flow">
-        ${SECTIONS.map(sec => html`<li class="map-col">
-          <span class="map-label">${b(sec.label)}<small>${b(sec.desc)}</small></span>
-          <span class="map-nodes">${COURSES.filter(c => c.section === sec.id).map(c => { const st = courseStats(c, s); return html`
-            <a href="#/course/${c.id}" class="map-node ${st.ratio >= 1 ? 'done' : st.done ? 'started' : ''}" style="--c:${c.color};--p:${st.ratio}" title="${L(c.title)}">${c.code}</a>`; })}</span>
-        </li>`)}
-      </ol>
-      <p class="muted small">${b({ ja: 'プレップで土台 → コアで再現実験から論文草稿まで → 選択で専門を深める', en: 'Prep builds the base → Core takes you from replication to a paper draft → Electives deepen a direction' })}</p>
-    </section>
 
     <div class="row-between list-heading">
       <h2>${b('yourCourses')} <small class="muted">${COURSES.length}</small></h2>
@@ -66,8 +54,8 @@ export function render(main, ctx) {
     grid.innerHTML = COURSES.filter(c => (filter === 'all' || c.section === filter) &&
       (!q || [c.title.ja, c.title.en, c.code, ...c.units.flatMap(u => [u.title.ja, u.title.en, ...u.keywords])].join(' ').toLowerCase().includes(q)))
       .map(c => { const st = courseStats(c, s); return html`
-        <a class="course-card" href="#/course/${c.id}" style="--c:${c.color}">
-          <span class="row-between card-meta"><span class="cat">${b(c.section)}</span><span class="chip" style="--c:${c.color}">${c.code}</span></span>
+        <a class="course-card" href="#/course/${c.id}">
+          <span class="row-between card-meta"><span class="cat">${b(c.section)}</span><span class="chip">${c.code}</span></span>
           <h3>${b(c.title)}</h3>
           <p class="muted small">${c.units.slice(0, 2).map((u, i) => html`${i ? ' / ' : ''}${b(u.title)}`)}</p>
           <span class="row-between card-bottom"><span>${c.units.length} ${b('units')} · ${c.questions.length} ${b('questions')}</span>
