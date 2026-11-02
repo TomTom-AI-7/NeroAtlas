@@ -1,5 +1,5 @@
 // Offline cache for the app shell (stale-while-revalidate). Bump VERSION when files change.
-const VERSION = 'neuroatlas-v6';
+const VERSION = 'neuroatlas-v7';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'icon.svg', 'manifest.webmanifest',
   'js/app.js', 'js/i18n.js', 'js/store.js', 'js/export.js', 'js/dom.js', 'js/pyrunner.js', 'js/calc.js',

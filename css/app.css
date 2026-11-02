@@ -448,3 +448,33 @@ body { background:
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.35) 30%, #000 70%), linear-gradient(180deg, #000 70%, transparent);
   mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.35) 30%, #000 70%); }
 @media (min-width: 700px) { .hero-art { width: 55%; height: 240px; } }
+
+/* ==== v4: plain Continue card, tab labels back, gentle hover lift ==== */
+/* Continue: solid ink, no gradient (inverted in dark mode) */
+.banner { background: var(--fg); color: var(--bg); box-shadow: 0 6px 18px rgba(12, 17, 29, .14); }
+.banner .banner-go { color: inherit; }
+.banner .banner-body small { opacity: .62; }
+.banner .chip { border-color: currentColor; color: inherit; opacity: .8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .banner { background: var(--fg); box-shadow: none; } }
+:root[data-theme="dark"] .banner { background: var(--fg); box-shadow: none; }
+
+/* tab bar: icon + label, blue line under the active tab */
+.nav a span { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: nowrap; }
+.nav a { gap: 2px; }
+.nav svg { width: 22px; height: 22px; }
+.nav a[aria-current="page"]::after { bottom: 5px; width: 18px; margin-left: -9px; }
+.nav-badge { top: 7px; }
+
+/* hover: lift a little, deepen the shadow */
+.btn, .banner, .pill-btn, .course-card, .opt, .tab, .lang-btn, .order-item, .unit-row, .review-row, .op-bar button {
+  transition: transform .2s cubic-bezier(.2, .7, .3, 1), box-shadow .2s ease, border-color .2s ease, background-color .2s ease, opacity .2s ease; }
+@media (hover: hover) {
+  .btn:hover:not(:disabled), .pill-btn:hover, .tab:hover, .lang-btn:hover, .op-bar button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(12, 17, 29, .12); opacity: 1; }
+  .banner:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(12, 17, 29, .2); opacity: 1; }
+  .banner.banner-sub:hover:not(:disabled) { box-shadow: 0 14px 30px rgba(12, 17, 29, .09), inset 0 1px 0 var(--glass-edge); }
+  .banner:hover .pill-btn { border-color: var(--blue); }
+  .course-card:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(12, 17, 29, .08), inset 0 1px 0 var(--glass-edge); }
+  .opt:hover:not(:disabled), .order-item:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(12, 17, 29, .07); }
+  .unit-row:hover, .review-row:hover { background: var(--surface-2); }
+}
+.btn:active, .banner:active:not(:disabled), .pill-btn:active, .opt:active:not(:disabled) { transform: translateY(0) scale(.99); }
