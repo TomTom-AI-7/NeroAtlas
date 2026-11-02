@@ -1,0 +1,46 @@
+# Deploy NeuroAtlas to Vercel on every push — no manual steps.
+# One-time setup: add a Vercel access token as the repository secret VERCEL_TOKEN
+# (GitHub → Settings → Secrets and variables → Actions → New repository secret).
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main, claude/neuroatlas-mvp]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_SCOPE: avoavos-projects   # Vercel team "AvoAvo's projects"
+      VERCEL_PROJECT: neuroatlas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test
+        run: node --test tests/*.test.mjs
+
+      - name: Build check
+        run: node scripts/build.mjs
+
+      - name: Deploy to Vercel (production)
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN is not set yet — skipping deploy. Add it under Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+          # Link (creating the project on first run), then let Vercel build with vercel.json and publish.
+          npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          url=$(npx --yes vercel@latest deploy --prod --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
+          echo "Deployed: $url"
+          echo "### Deployed to Vercel" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"

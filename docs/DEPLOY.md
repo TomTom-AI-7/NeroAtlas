@@ -45,3 +45,16 @@ Safari で公開 URL を開く → 共有 → **ホーム画面に追加**。黒
 `vercel.json` にビルド設定が入っているので、Vercel では **Add New → Project → `TomTom-AI-7/NeroAtlas` を Import → Deploy** だけで動く
 （Build Command `node scripts/build.mjs`、Output Directory `dist` は自動で読み込まれる）。
 本番にするブランチは Settings → Git → Production Branch で `claude/neuroatlas-mvp`（または `main` にマージ）。
+
+## 自動デプロイ（おすすめ・推奨設定）
+
+`.github/workflows/deploy-vercel.yml` が、`main` または `claude/neuroatlas-mvp` に push されるたびに
+テスト → ビルド確認 → Vercel（チーム AvoAvo's projects、プロジェクト `neuroatlas`）への本番公開 を自動で行う。
+GitHub 側から公開するので、Vercel にログインしている GitHub アカウントの権限は関係ない。
+
+最初の1回だけ:
+1. https://vercel.com/account/tokens でトークンを作る（Scope: AvoAvo's projects、期限は任意）
+2. GitHub に TomTom-AI-7 でログイン → `TomTom-AI-7/NeroAtlas` → Settings → Secrets and variables → Actions →
+   New repository secret → Name `VERCEL_TOKEN`、Secret に 1 のトークン → Add secret
+
+以降は何もしなくてよい。公開 URL は `https://neuroatlas.vercel.app`（同名が使用済みなら Vercel が別名を付ける。Actions の実行結果に URL が出る）。
